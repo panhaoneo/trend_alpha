@@ -11,6 +11,8 @@ concurrency:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   screen-and-publish:
@@ -43,3 +45,12 @@ jobs:
           git add docs output/trend_alpha data/cninfo_pdf_cache.json
           git commit -m "daily screen $(date -u +%F-%H%M)" --allow-empty
           git push
+
+      - name: 上传 Pages 站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
