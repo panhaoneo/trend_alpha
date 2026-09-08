@@ -459,10 +459,6 @@
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-26/1225501732.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2010-04-07/57778719.PDF"
   },
-  "600999": {
-    "report": "http://static.cninfo.com.cn/finalpage/2026-08-26/1225506887.PDF",
-    "prospectus": "http://static.cninfo.com.cn/finalpage/2016-09-28/1202732290.PDF"
-  },
   "605189": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-28/1225519275.PDF",
     "prospectus": ""
@@ -1126,10 +1122,6 @@
   "301059": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225497842.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2021-09-07/1210977938.PDF"
-  },
-  "603083": {
-    "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225496844.PDF",
-    "prospectus": "http://static.cninfo.com.cn/finalpage/2025-10-21/1224720693.PDF"
   },
   "600501": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-21/1225486081.PDF",
@@ -3795,14 +3787,6 @@
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225499412.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2016-02-19/1201986165.PDF"
   },
-  "603061": {
-    "report": "http://static.cninfo.com.cn/finalpage/2026-08-27/1225512759.PDF",
-    "prospectus": "http://static.cninfo.com.cn/finalpage/2023-02-16/1215874398.PDF"
-  },
-  "002645": {
-    "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225498809.PDF",
-    "prospectus": "http://static.cninfo.com.cn/finalpage/2011-12-09/60303215.PDF"
-  },
   "002008": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-21/1225485259.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2004-06-08/14124875.PDF"
@@ -3858,5 +3842,25 @@
   "002842": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225525449.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2017-01-04/1202987409.PDF"
+  },
+  "601872": {
+    "report": "",
+    "prospectus": ""
+  },
+  "600999": {
+    "report": "",
+    "prospectus": ""
+  },
+  "603083": {
+    "report": "",
+    "prospectus": ""
+  },
+  "603061": {
+    "report": "",
+    "prospectus": ""
+  },
+  "002645": {
+    "report": "",
+    "prospectus": ""
   }
 }
