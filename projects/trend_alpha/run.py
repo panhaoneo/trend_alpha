@@ -58,9 +58,11 @@ def main():
     params = {
         "report_main": cfg.REPORT_MAIN, "report_prev": cfg.REPORT_PREV,
         "report_annual": cfg.REPORT_ANNUAL,
-        "p_profit": cfg.P_PROFIT_MAIN, "p_rev": cfg.P_REV_MAIN,
-        "p_profit_prev": cfg.P_PROFIT_PREV, "p_annual": cfg.P_ANNUAL,
+        "p_sales": cfg.P_SALES_MAIN, "p_profit": cfg.P_PROFIT_MAIN,
+        "p_eps": cfg.P_EPS_MAIN, "p_profit_prev": cfg.P_PROFIT_PREV,
+        "p_annual": cfg.P_ANNUAL,
         "require_prev": require_prev, "require_annual": require_annual,
+        "require_eps": cfg.REQUIRE_EPS,
         "exclude_st": cfg.EXCLUDE_ST, "exclude_bse": cfg.EXCLUDE_BSE,
         "exclude_star": cfg.EXCLUDE_STAR,
     }
@@ -125,6 +127,10 @@ def main():
                 "g_main": flat.get(cfg.IDS["profit"]),
                 "rev_main": flat.get(cfg.IDS["rev"]),
                 "roe_main": flat.get(cfg.IDS.get("roe")) if cfg.IDS.get("roe") else None,
+                "gross_main": flat.get(cfg.IDS.get("gross")) if cfg.IDS.get("gross") else None,
+                "cash_content": flat.get(cfg.IDS.get("cash_content")) if cfg.IDS.get("cash_content") else None,
+                "cash_op_index": flat.get(cfg.IDS.get("cash_op_index")) if cfg.IDS.get("cash_op_index") else None,
+                "eps_main": flat.get(cfg.IDS.get("eps")) if cfg.IDS.get("eps") else None,
             }
         with open(fin_cache, "w") as f:
             json.dump({"__meta__": {"n": len(candidates)}, **fin}, f, ensure_ascii=False)
@@ -134,14 +140,25 @@ def main():
         with open(fin_cache, "w") as f:
             json.dump({"__meta__": {"n": len(candidates)}, **fin}, f, ensure_ascii=False)
 
+    def eps_of(entry):
+        """EPS同比: 有真实EPS字段用EPS, 否则归母净利同比代理(API暂无eps字段)。"""
+        eps = entry.get("eps_main")
+        return eps if eps is not None else entry.get("g_main")
+
     def gate_main(entry):
         g, rev = entry.get("g_main"), entry.get("rev_main")
-        return (g is not None and rev is not None
-                and g >= cfg.P_PROFIT_MAIN and rev >= cfg.P_REV_MAIN)
+        if g is None or rev is None:
+            return False
+        if g < cfg.P_PROFIT_MAIN or rev < cfg.P_SALES_MAIN:
+            return False
+        if cfg.REQUIRE_EPS and (eps_of(entry) or 0) < cfg.P_EPS_MAIN:
+            return False
+        return True
 
     main_pass = [tc for tc, e in fin.items() if gate_main(e)]
     stats["fin_base"] = len(main_pass)
-    log(f"  主报告期达标(净利≥{cfg.P_PROFIT_MAIN}% 营收≥{cfg.P_REV_MAIN}%): {len(main_pass)} 只")
+    eps_tag = f" EPS同比≥{cfg.P_EPS_MAIN}%(代理)" if cfg.REQUIRE_EPS else ""
+    log(f"  主报告期达标(营收≥{cfg.P_SALES_MAIN}% 净利≥{cfg.P_PROFIT_MAIN}%{eps_tag}): {len(main_pass)} 只")
 
     if require_prev:
         need = [tc for tc in main_pass if fin[tc].get("g_prev") is None]
@@ -173,16 +190,31 @@ def main():
         log(f"  年度验证(净利≥{cfg.P_ANNUAL}%): {len(kept)} 只")
         main_pass = kept
 
+    # 同期对比报告期(毛利率同比Δ)
+    need_cmp = [tc for tc in main_pass if fin[tc].get("gross_ly") is None]
+    if need_cmp:
+        t = time.time()
+        fmap_cmp = fetch.indicators_map(need_cmp, cfg.REPORT_CMP, cfg.FETCH_WORKERS_FIN, log_every=200)
+        for tc, flat in fmap_cmp.items():
+            fin.setdefault(tc, {})["gross_ly"] = flat.get(cfg.IDS["gross"]) if cfg.IDS.get("gross") else None
+        log(f"  同期对比({cfg.REPORT_CMP})抓取: {len(fmap_cmp)} 只 ({elapsed(t):.0f}s)")
+        save_fin_cache()
+
     name_map = {s["thscode"]: s["name"] for s in stocks}
     records = []
     for tc in main_pass:
         e = fin[tc]
-        records.append({
+        rec = {
             "thscode": tc, "name": name_map.get(tc, ""),
             "g_main": e.get("g_main"), "rev_main": e.get("rev_main"),
             "roe_main": e.get("roe_main"), "g_prev": e.get("g_prev"),
-            "g_annual": e.get("g_annual"),
-        })
+            "g_annual": e.get("g_annual"), "eps_main": e.get("eps_main"),
+            "gross_main": e.get("gross_main"), "gross_ly": e.get("gross_ly"),
+            "cash_content": e.get("cash_content"),
+            "cash_op_index": e.get("cash_op_index"),
+        }
+        metrics.compute_quality(rec)
+        records.append(rec)
     stats["fin_pass"] = len(records)
     if not records:
         log("✗ 无符合财务条件股票")
@@ -250,9 +282,10 @@ def main():
     log(f"  技术面有效: {stats['tech_ok']} 只")
 
     # ── 4. 行业热度 ──
-    log("4/6 行业热度...")
-    boards, members = fetch.fetch_industry_members(cfg.CACHE_DIR, force=args.refresh_ind)
-    ind_of, heat_rows = metrics.industry_stats(records, members, boards)
+    log("4/6 行业热度(一级881+二级884回退)...")
+    boards_l1, boards_sub, members_l1, members_sub = fetch.fetch_industry_members(
+        cfg.CACHE_DIR, force=args.refresh_ind)
+    ind_of, heat_rows = metrics.industry_stats(records, members_l1, members_sub)
     hot_inds = {h["industry"] for h in heat_rows if h["hot"]}
     for r in records:
         r["industry"] = ind_of.get(r["thscode"], "未分类")

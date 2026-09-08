@@ -11,16 +11,19 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "output", "trend_alpha")
 REPORT_MAIN = "2026-2"       # 主筛: 2026中报
 REPORT_PREV = "2026-1"       # 双期确认: 2026一季报
 REPORT_ANNUAL = "2025-4"     # 年度验证(可选): 2025年报
+REPORT_CMP = "2025-2"        # 同期对比(毛利率同比Δ): 2025中报
 
-# ── 财务硬门槛 ──
-P_PROFIT_MAIN = 40.0     # 主报告期 归母净利同比(%)  [静水≥40 / C:18-25+]
-P_REV_MAIN = 25.0        # 主报告期 营收同比(%)       [C: 营收≥25]
-P_PROFIT_PREV = 40.0     # 前一报告期 净利同比(%)     [双期确认]
-P_ANNUAL = 25.0          # 年度净利同比(%)            [A 要素, REQUIRE_ANNUAL 时启用]
-P_ROE = 15.0             # ROE 质量线(%)              [A 要素: 17; 默认仅计分]
+# ── 财务硬门槛 (sales/net income/EPS 三率体系) ──
+P_SALES_MAIN = 30.0     # 主报告期 营收同比(%)       [C: 营收≥25~30, 用户要求≥30]
+P_PROFIT_MAIN = 40.0    # 主报告期 归母净利同比(%)   [静水≥40 / C:18-25+]
+P_EPS_MAIN = 30.0       # 主报告期 EPS同比(%)        [C: 每股收益≥18-25+, 用户要求≥30]
+P_PROFIT_PREV = 40.0    # 前一报告期 净利同比(%)     [双期确认]
+P_ANNUAL = 25.0         # 年度净利同比(%)            [A 要素, REQUIRE_ANNUAL 时启用]
+P_ROE = 15.0            # ROE 质量线(%)              [A 要素: 17; 默认仅计分]
 REQUIRE_PREV = True
 REQUIRE_ANNUAL = False
 REQUIRE_ROE = False
+REQUIRE_EPS = True      # EPS同比≥P_EPS_MAIN (API暂无EPS字段时以归母净利同比为代理)
 
 # ── 排除规则 ──
 EXCLUDE_ST = True
@@ -37,8 +40,13 @@ ROLE_CANDIDATES = {
             "revenue_yoy_growth_ratio"],
     "roe": ["index_weighted_avg_roe", "weight_avg_roe"],
     "gross": ["sale_gross_margin"],
+    "eps": ["eps_yoy_growth_ratio", "basic_eps_yoy_growth_ratio",
+            "calculate_eps_yoy_growth_ratio", "earnings_per_share_yoy_growth_ratio"],
+    "cash_content": ["net_profit_cash_content"],
+    "cash_op_index": ["cash_operating_index"],
 }
-IDS = {"profit": None, "rev": None, "roe": None, "gross": None}
+IDS = {"profit": None, "rev": None, "roe": None, "gross": None,
+       "eps": None, "cash_content": None, "cash_op_index": None}
 
 # ── 技术面参数 ──
 TECH_DAYS = 400            # 抓取日K窗口(自然日)

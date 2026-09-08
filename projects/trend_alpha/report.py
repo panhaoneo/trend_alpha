@@ -22,9 +22,13 @@ def _link_cell(url, label):
     return f"[{label}]({url})" if url else "—"
 
 
+def _pp(v):
+    return "-" if v is None else f"{v:+.1f}pp"
+
+
 def _table(records, pdf_links=None):
-    head = ("| # | 代码 | 名称 | 行业 | 净利同比 | 营收同比 | ROE | 现价 | 距52周高 | 当日涨跌 | RS%ile | 放量比 | 得分 | 财报 | 招股书 |")
-    sep = "|---|------|------|------|----------|----------|-----|------|----------|----------|--------|--------|------|------|--------|"
+    head = ("| # | 代码 | 名称 | 行业 | 净利同比 | 营收同比 | EPS同比* | ROE | 毛利Δ | 净现比% | 现金质量 | 现价 | 距52周高 | 当日涨跌 | RS%ile | 放量比 | 得分 | 财报 | 招股书 |")
+    sep = "|---|------|------|------|----------|----------|----------|-----|-------|---------|----------|------|----------|----------|--------|--------|------|------|--------|"
     lines = [head, sep]
     for i, r in enumerate(records, 1):
         code = r["thscode"]
@@ -32,7 +36,11 @@ def _table(records, pdf_links=None):
         ind = r.get("industry", "-")
         g = "-" if r.get("g_main") is None else fmt_pct(r["g_main"])
         rev = "-" if r.get("rev_main") is None else fmt_pct(r["rev_main"])
+        eps = "-" if r.get("eps_eff") is None else fmt_pct(r["eps_eff"])
         roe = "-" if r.get("roe_main") is None else fmt_pct(r["roe_main"])
+        mpp = _pp(r.get("margin_pp"))
+        nc = "-" if r.get("cash_content") is None else f"{r['cash_content']:.0f}"
+        cf = r.get("cash_flag") or "—"
         price = fmt_price(r.get("close") or r.get("last_price"))
         off = _fmt_off(r.get("off_high"))
         chg = "-" if r.get("chg_pct") is None else fmt_pct(r["chg_pct"])
@@ -40,7 +48,7 @@ def _table(records, pdf_links=None):
         vs = "-" if r.get("vol_surge") is None else f"{r['vol_surge']:.1f}"
         score = r.get("score", 0)
         pdf = (pdf_links or {}).get(code, {})
-        lines.append(f"| {i} | {code} | {name} | {ind} | {g} | {rev} | {roe} | {price} | {off} | {chg} | {rs} | {vs} | {score} |"
+        lines.append(f"| {i} | {code} | {name} | {ind} | {g} | {rev} | {eps} | {roe} | {mpp} | {nc} | {cf} | {price} | {off} | {chg} | {rs} | {vs} | {score} |"
                      f" {_link_cell(pdf.get('report', ''), '财报PDF')} | {_link_cell(pdf.get('prospectus', ''), '招股书PDF')} |")
     return "\n".join(lines)
 
@@ -57,9 +65,10 @@ def gen_md(ctx, path):
     L.append(f"# 景气趋势每日选股（静水×CANSLIM 蒸馏框架 v1.0）")
     L.append("")
     L.append(f"- 日期: {today} {ctx['weekday']}")
-    L.append(f"- 财务口径: 主筛 {p['report_main']} 净利同比≥{p['p_profit']}% 且 营收同比≥{p['p_rev']}%"
-             + (f"，双期确认 {p['report_prev']} 净利≥{p['p_profit_prev']}%" if p['require_prev'] else "")
-             + (f"，年报 {p['report_annual']} 净利≥{p['p_annual']}%" if p['require_annual'] else ""))
+    L.append(f"- 财务口径: 主筛 {p['report_main']} 三率门槛: 营收(销售)同比≥{p['p_sales']}% / 归母净利同比≥{p['p_profit']}%"
+             + (f" / EPS同比≥{p['p_eps']}%" if p['require_eps'] else "")
+             + (f" | 双期确认 {p['report_prev']} 净利≥{p['p_profit_prev']}%" if p['require_prev'] else "")
+             + (f" | 年报 {p['report_annual']} 净利≥{p['p_annual']}%" if p['require_annual'] else ""))
     L.append(f"- 候选池: 全A − ST − 北交所 − 科创板 | 方法文档: `docs/trend_alpha_framework.md`")
     L.append("")
 
@@ -87,6 +96,10 @@ def gen_md(ctx, path):
         L.append(f"- 候选池 {s['universe']} 只 → 财务双达标 {s['fin_pass']} 只 → 技术面有效 {s['tech_ok']} 只")
     L.append(f"- 分组: A 核心α {len(buckets['A'])} | B 新高附近 {len(buckets['B'])} | C 回调观察 {len(buckets['C'])} | 待观察 {len(buckets['W'])}")
     L.append(f"- PDF链接: 财报=最新定期报告, 招股书=上市招股文件（来源: 巨潮资讯; — 表示暂无可用PDF）")
+    L.append("")
+    L.append("> 指标口径: **EPS同比*** = API暂无每股收益增速字段, 暂以归母净利同比为代理(接入真实EPS后自动生效); "
+             "**毛利Δ** = 毛利率同比变化(百分点); **净现比%** = 经营现金流净额÷净利润; "
+             "**现金质量**: 净现比≥100%且现金营运指数≥0.8→优, ≥60%→良, ≥30%→一般, 其余→差")
     L.append("")
 
     # 行业热度

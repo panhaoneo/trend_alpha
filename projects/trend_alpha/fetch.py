@@ -64,15 +64,16 @@ def probe_indicator_ids(reports, dump_dir):
         hit = next((c for c in candidates if c in seen), None)
         if not hit:
             hint = {"profit": "net_profit", "rev": "income", "roe": "roe",
-                    "gross": "gross"}[role]
-            hit = next((k for k in seen if hint in k and "ratio" in k), None)
+                    "gross": "gross", "eps": "eps", "cash_content": "cash_content",
+                    "cash_op_index": "operating_index"}[role]
+            hit = next((k for k in seen if hint in k), None)
         if hit:
             found[role] = hit
     for role, cid in found.items():
         log(f"  指标id[{role}] = {cid}")
     miss = [r for r in cfg.ROLE_CANDIDATES if r not in found]
     if miss:
-        log(f"  ⚠ 未找到指标id: {miss} (该维度按0计)")
+        log(f"  ⚠ 未找到指标id: {miss} (该维度按0/代理计)")
     return found
 
 
@@ -157,43 +158,52 @@ def index_bars(thscode, start_ms, end_ms):
 # ── 行业成分 ──
 
 def fetch_industry_members(cache_dir, force=False):
-    """返回 (boards[(code,name)...], members{tc: 行业名})。成分股按日缓存。"""
+    """行业分类数据: 881xxx 一级行业 + 884xxx 二级行业(一级成分缺失时的回退)。
+    返回 (boards_l1, boards_sub, members_l1{tc:一级名}, members_sub{tc:二级名})。
+    成分股按日缓存。"""
     import config as cfg
     today = datetime.now().strftime("%Y-%m-%d")
     cache_path = os.path.join(cache_dir, f"industry_members_{today}.json")
     if not force and os.path.exists(cache_path):
         with open(cache_path) as f:
             d = json.load(f)
-        log(f"  行业成分使用当日缓存: {len(d['members'])} 条映射")
-        return d["boards"], d["members"]
+        log(f"  行业成分使用当日缓存: 一级{len(d['members_l1'])}条/二级{len(d['members_sub'])}条")
+        return d["boards_l1"], d["boards_sub"], d["members_l1"], d["members_sub"]
 
     data = _retry_get("/api/a-share-index/catalog/ths-index-list",
                       {"tag": "industry"}, 30)
-    boards = [(i["thscode"], i["name"]) for i in safe_items(data)
-              if i["thscode"].startswith("881")]
-    log(f"  一级行业 {len(boards)} 个, 拉取成分股...")
+    boards_l1 = [(i["thscode"], i["name"]) for i in safe_items(data)
+                 if i["thscode"].startswith("881")]
+    boards_sub = [(i["thscode"], i["name"]) for i in safe_items(data)
+                  if i["thscode"].startswith("884")]
+    log(f"  一级行业 {len(boards_l1)} 个 + 二级行业 {len(boards_sub)} 个, 拉取成分股...")
 
     from tools.ths_api import fetch_constituents
-    members = {}
+    members_l1, members_sub = {}, {}
     done = [0]
+    all_boards = [(code, name, "l1") for code, name in boards_l1] + \
+                 [(code, name, "sub") for code, name in boards_sub]
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg.FETCH_WORKERS_IND) as ex:
-        fmap = {ex.submit(fetch_constituents, code): (code, name)
-                for code, name in boards}
+        fmap = {ex.submit(fetch_constituents, code): (code, name, lv)
+                for code, name, lv in all_boards}
         for f in concurrent.futures.as_completed(fmap):
             done[0] += 1
-            if done[0] % 20 == 0:
-                log(f"    行业成分进度 {done[0]}/{len(boards)}")
-            code, name = fmap[f]
+            if done[0] % 50 == 0:
+                log(f"    行业成分进度 {done[0]}/{len(all_boards)}")
+            code, name, lv = fmap[f]
             try:
                 mlist = f.result()
             except Exception:
                 mlist = []
+            bucket = members_l1 if lv == "l1" else members_sub
             for tc, _ in mlist:
-                if tc not in members:
-                    members[tc] = name
+                if tc not in bucket:
+                    bucket[tc] = name
 
     os.makedirs(cache_dir, exist_ok=True)
     with open(cache_path, "w") as f:
-        json.dump({"boards": boards, "members": members}, f, ensure_ascii=False)
-    log(f"  行业成分已缓存: {len(members)} 条映射")
-    return boards, members
+        json.dump({"boards_l1": boards_l1, "boards_sub": boards_sub,
+                   "members_l1": members_l1, "members_sub": members_sub},
+                  f, ensure_ascii=False)
+    log(f"  行业成分已缓存: 一级 {len(members_l1)} 条, 二级 {len(members_sub)} 条")
+    return boards_l1, boards_sub, members_l1, members_sub

@@ -97,12 +97,18 @@ def compute_market_state(idx_bars_map):
     }
 
 
-def industry_stats(records, members_map, boards):
-    """按一级行业统计过线家数与平均增速; 返回 (ind_of, heat_rows)。
-    ind_of: {tc: 行业名}; heat_rows 按过线家数降序。"""
+def industry_stats(records, members_l1, members_sub):
+    """行业归属: 优先一级行业(881), 缺失时回退二级行业(884, 名称后附·二级),
+    均未命中记"未分类"(不再计为热行业)。返回 (ind_of, heat_rows)。"""
     ind_of = {}
     for r in records:
-        ind_of[r["thscode"]] = members_map.get(r["thscode"], "未分类")
+        tc = r["thscode"]
+        name = members_l1.get(tc)
+        if not name:
+            name = members_sub.get(tc)
+            if name:
+                name = f"{name}·二级"
+        ind_of[tc] = name or "未分类"
 
     groups = {}
     for r in records:
@@ -119,9 +125,38 @@ def industry_stats(records, members_map, boards):
         })
     rows.sort(key=lambda x: (-x["count"], -x["avg_g"]))
     for row in rows:
-        row["hot"] = bool(row["count"] >= cfg.HOT_IND_MIN_COUNT
+        row["hot"] = bool(row["industry"] != "未分类"
+                          and row["count"] >= cfg.HOT_IND_MIN_COUNT
                           and row["avg_g"] >= cfg.HOT_IND_MIN_AVG)
     return ind_of, rows
+
+
+def compute_quality(rec):
+    """利润质量/现金流匹配指标 (API可得):
+    - margin_pp: 毛利率同比变化(百分点)
+    - cash_flag: 净现比&现金营运指数 → 优/良/一般/差
+    - eps_eff: EPS同比(无EPS字段时以归母净利同比为代理)"""
+    gm, gl = rec.get("gross_main"), rec.get("gross_ly")
+    if gm is not None and gl is not None:
+        rec["margin_pp"] = round(gm - gl, 1)
+    else:
+        rec["margin_pp"] = None
+    content = rec.get("cash_content")
+    opidx = rec.get("cash_op_index")
+    if content is None:
+        rec["cash_flag"] = None
+    else:
+        if content >= 100 and (opidx is None or opidx >= 0.8):
+            rec["cash_flag"] = "优"
+        elif content >= 60:
+            rec["cash_flag"] = "良"
+        elif content >= 30:
+            rec["cash_flag"] = "一般"
+        else:
+            rec["cash_flag"] = "差"
+    eps = rec.get("eps_main")
+    rec["eps_eff"] = eps if eps is not None else rec.get("g_main")
+    return rec
 
 
 def score_record(rec):
