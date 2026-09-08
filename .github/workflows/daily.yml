@@ -1,0 +1,45 @@
+name: daily-trend-screen
+
+on:
+  schedule:
+    - cron: "30 8 * * 1-5"   # 北京时间 16:30 (UTC+8), 仅工作日
+  workflow_dispatch:
+
+concurrency:
+  group: daily-screen
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  screen-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: pip install --quiet requests
+
+      - name: 每日选股 + 财报/招股书PDF链接
+        env:
+          FUYAO_API_KEY: ${{ secrets.FUYAO_API_KEY }}
+        run: python3 projects/trend_alpha/run.py
+
+      - name: 渲染 GitHub Pages 站点
+        run: python3 scripts/build_site.py
+
+      - name: 提交并推送结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs output/trend_alpha data/cninfo_pdf_cache.json
+          git commit -m "daily screen $(date -u +%F-%H%M)" --allow-empty
+          git push
