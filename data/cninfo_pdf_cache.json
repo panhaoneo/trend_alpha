@@ -2507,10 +2507,6 @@
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-22/1225488249.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2022-08-10/1214261597.PDF"
   },
-  "600798": {
-    "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225497078.PDF",
-    "prospectus": "http://static.cninfo.com.cn/finalpage/1997-03-14/148782.html"
-  },
   "000068": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-27/1225509483.PDF",
     "prospectus": ""
@@ -3861,6 +3857,10 @@
   },
   "002645": {
     "report": "",
+    "prospectus": ""
+  },
+  "600798": {
+    "report": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225497078.PDF",
     "prospectus": ""
   }
 }
