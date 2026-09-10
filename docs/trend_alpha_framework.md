@@ -1,8 +1,8 @@
 # 景气趋势选股框架：静水2008 × 欧奈尔 CANSLIM（蒸馏版）
 
 > 由两份材料蒸馏合成，用于指导 `projects/trend_alpha/run.py` 的每日自动选股：
-> - 材料A：《静水2008 投资问答集》`/home/pan/zhuang/jingshui2008.md`
-> - 材料B：威廉·欧奈尔《笑傲股市》(第4版, CAN SLIM 法则) `/home/pan/zhuang/xags.epub`
+> - 材料A：《静水2008 投资问答集》（本地收藏资料，未随仓库分发）
+> - 材料B：威廉·欧奈尔《笑傲股市》(第4版, CAN SLIM 法则)（本地收藏资料，未随仓库分发）
 > 版本：v1.0（2026-09-08）
 
 ## 0. 一句话方法
@@ -100,10 +100,10 @@ ROE(中报加权,≥15%质量分)、距52周高点（越近越高分）、RS百�
 ## 9. 每日运行
 
 ```bash
-python3 /home/pan/zhuang/projects/trend_alpha/run.py            # 每日新报告（缓存优先，1-3分钟）
-python3 /home/pan/zhuang/projects/trend_alpha/run.py --refresh-fin   # 强制重拉财务（新报告期开始后）
+python3 projects/trend_alpha/run.py            # 每日新报告（缓存优先，1-3分钟）
+python3 projects/trend_alpha/run.py --refresh-fin   # 强制重拉财务（新报告期开始后）
 ```
-输出：`/home/pan/zhuang/output/trend_alpha/trend_alpha_YYYY-MM-DD.md/.json`
+输出：`output/trend_alpha/trend_alpha_YYYY-MM-DD.md/.json`
 
 ---
 
