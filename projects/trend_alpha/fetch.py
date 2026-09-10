@@ -1,9 +1,11 @@
-"""数据抓取层: 指标/日K/指数/行业成分 (带重试与进度)"""
+"""数据抓取层: 指标/日K/指数/行业成分/重组公告 (带重试与进度)"""
 
 import json
 import os
+import re
 import sys
 import time
+import requests
 import concurrent.futures
 from datetime import datetime, timedelta
 
@@ -38,8 +40,13 @@ def _retry_get(endpoint, params, timeout, retries=2):
 
 # ── 探测: 真实指标 id ──
 
+def _probe_ids_cache_path(dump_dir):
+    return os.path.join(dump_dir, "probe_ids.json")
+
+
 def probe_indicator_ids(reports, dump_dir):
-    """抓取样本股多个报告期, dump 原始 indicators, 按子串候选回填 id。"""
+    """抓取样本股多个报告期, dump 原始 indicators, 按子串候选回填 id。
+    网络/限流失败时回退上次成功探测的 id 缓存(cache/probe_ids.json)。"""
     import config as cfg
     os.makedirs(dump_dir, exist_ok=True)
     raw = {}
@@ -49,7 +56,6 @@ def probe_indicator_ids(reports, dump_dir):
         raw[rep] = data
     with open(os.path.join(dump_dir, "probe_dump.json"), "w") as f:
         json.dump(raw, f, ensure_ascii=False, indent=1)
-    log(f"  探测dump已存: {dump_dir}/probe_dump.json")
 
     seen = {}
     for rep, data in raw.items():
@@ -69,8 +75,23 @@ def probe_indicator_ids(reports, dump_dir):
             hit = next((k for k in seen if hint in k), None)
         if hit:
             found[role] = hit
-    for role, cid in found.items():
-        log(f"  指标id[{role}] = {cid}")
+
+    if found.get("profit") and found.get("rev"):
+        with open(_probe_ids_cache_path(dump_dir), "w") as f:
+            json.dump(found, f, ensure_ascii=False, indent=1)
+        for role, cid in found.items():
+            log(f"  指标id[{role}] = {cid}")
+    else:
+        cached = {}
+        p = _probe_ids_cache_path(dump_dir)
+        if os.path.exists(p):
+            with open(p) as f:
+                cached = json.load(f)
+        if cached.get("profit") and cached.get("rev"):
+            log("  ⚠ 探测失败(接口限流/异常), 回退上次成功的指标id缓存")
+            found = cached
+            for role, cid in found.items():
+                log(f"  指标id[{role}] = {cid} (回退)")
     miss = [r for r in cfg.ROLE_CANDIDATES if r not in found]
     if miss:
         log(f"  ⚠ 未找到指标id: {miss} (该维度按0/代理计)")
@@ -157,18 +178,22 @@ def index_bars(thscode, start_ms, end_ms):
 
 # ── 行业成分 ──
 
-def fetch_industry_members(cache_dir, force=False):
-    """行业分类数据: 881xxx 一级行业 + 884xxx 二级行业(一级成分缺失时的回退)。
-    返回 (boards_l1, boards_sub, members_l1{tc:一级名}, members_sub{tc:二级名})。
-    成分股按日缓存。"""
+def fetch_industry_members(force=False):
+    """行业分类数据: 881xxx 一级 + 884xxx 二级(回退)。跨日缓存 data/industry_members.json,
+    有效期 cfg.IND_TTL_DAYS 天(随仓库提交)。返回 (boards_l1, boards_sub, members_l1, members_sub)。"""
     import config as cfg
-    today = datetime.now().strftime("%Y-%m-%d")
-    cache_path = os.path.join(cache_dir, f"industry_members_{today}.json")
+    cache_path = cfg.IND_CACHE
     if not force and os.path.exists(cache_path):
-        with open(cache_path) as f:
-            d = json.load(f)
-        log(f"  行业成分使用当日缓存: 一级{len(d['members_l1'])}条/二级{len(d['members_sub'])}条")
-        return d["boards_l1"], d["boards_sub"], d["members_l1"], d["members_sub"]
+        try:
+            with open(cache_path) as f:
+                d = json.load(f)
+            saved_on = d.get("saved_on")
+            fresh = (datetime.now() - datetime.strptime(saved_on, "%Y-%m-%d")).days <= cfg.IND_TTL_DAYS
+            if fresh and d.get("members_l1"):
+                log(f"  行业成分缓存有效(保存于 {saved_on}): 一级{len(d['members_l1'])}条/二级{len(d['members_sub'])}条")
+                return d["boards_l1"], d["boards_sub"], d["members_l1"], d["members_sub"]
+        except Exception:
+            pass
 
     data = _retry_get("/api/a-share-index/catalog/ths-index-list",
                       {"tag": "industry"}, 30)
@@ -200,10 +225,65 @@ def fetch_industry_members(cache_dir, force=False):
                 if tc not in bucket:
                     bucket[tc] = name
 
-    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     with open(cache_path, "w") as f:
-        json.dump({"boards_l1": boards_l1, "boards_sub": boards_sub,
+        json.dump({"saved_on": datetime.now().strftime("%Y-%m-%d"),
+                   "boards_l1": boards_l1, "boards_sub": boards_sub,
                    "members_l1": members_l1, "members_sub": members_sub},
                   f, ensure_ascii=False)
     log(f"  行业成分已缓存: 一级 {len(members_l1)} 条, 二级 {len(members_sub)} 条")
     return boards_l1, boards_sub, members_l1, members_sub
+
+
+# ── 重大资产重组公告 (巨潮全文检索) ──
+
+_CNINFO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Origin": "http://www.cninfo.com.cn",
+    "Referer": "http://www.cninfo.com.cn/",
+}
+
+
+def fetch_restruct_announcements(days=90, page_cap=25):
+    """巨潮全文检索近N天 '重大资产重组' 公告, 按公告时间降序返回。
+    每条: {code, name, title, date(YYYY-MM-DD), url(PDF), type}"""
+    today = datetime.now()
+    se = f"{(today - timedelta(days=days)).strftime('%Y-%m-%d')}~{today.strftime('%Y-%m-%d')}"
+    out = []
+    for page in range(1, page_cap + 1):
+        data = {
+            "stock": "", "tabName": "fulltext", "pageSize": "30",
+            "pageNum": str(page), "column": "", "category": "", "plate": "",
+            "seDate": se, "searchkey": "重大资产重组", "secid": "",
+            "sortName": "", "sortType": "", "isHLtitle": "true",
+        }
+        try:
+            resp = requests.post("http://www.cninfo.com.cn/new/hisAnnouncement/query",
+                                 data=data, headers=_CNINFO_HEADERS, timeout=20)
+            d = resp.json()
+        except Exception:
+            time.sleep(0.5)
+            continue
+        anns = d.get("announcements") or []
+        if not anns:
+            break
+        for a in anns:
+            title = re.sub(r"<[^>]+>", "", a.get("announcementTitle") or "").strip()
+            if "重大资产重组" not in title:
+                continue
+            ms = a.get("announcementTime") or 0
+            date = datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d") if ms else ""
+            adj = a.get("adjunctUrl") or ""
+            out.append({
+                "code": a.get("secCode", ""), "name": a.get("secName", ""),
+                "title": title, "date": date,
+                "url": f"http://static.cninfo.com.cn/{adj}" if adj else "",
+                "type": a.get("announcementTypeName", ""),
+            })
+        if not d.get("hasMore"):
+            break
+        time.sleep(0.15)
+    out.sort(key=lambda x: (x["date"], x["code"]), reverse=True)
+    return out

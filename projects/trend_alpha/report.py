@@ -32,7 +32,7 @@ def _table(records, pdf_links=None):
     lines = [head, sep]
     for i, r in enumerate(records, 1):
         code = r["thscode"]
-        name = r["name"]
+        name = r["name"] + ("·N" if r.get("restruct_flag") else "")
         ind = r.get("industry", "-")
         g = "-" if r.get("g_main") is None else fmt_pct(r["g_main"])
         rev = "-" if r.get("rev_main") is None else fmt_pct(r["rev_main"])
@@ -131,6 +131,28 @@ def gen_md(ctx, path):
         L.append(_table(buckets["W"][:30], pdf_links))
         L.append("")
 
+    # R 重大资产重组观察组 (CANSLIM N)
+    restruct = ctx.get("restruct") or []
+    rd = p.get("restruct_days", 90)
+    L.append(f"## R. 重大资产重组观察组（N属性 · 近{rd}天公告）（{len(restruct)} 只）\n")
+    L.append("> CANSLIM **N**(New)：重大资产重组可能带来新业务/新管理层/基本面转折；本组为事件观察名单，不参与评分与买卖纪律。"
+             "主清单中名称带 **·N** 标记者亦属本组。\n")
+    if restruct:
+        L.append("| # | 代码 | 名称 | 行业 | 属性 | 公告日期 | 公告 | 最新财报 | 现价 | 当日涨跌 |")
+        L.append("|---|------|------|------|------|----------|------|----------|------|----------|")
+        for i, r in enumerate(restruct, 1):
+            title = r.get("title", "")
+            short = title if len(title) <= 38 else title[:38] + "…"
+            ann_cell = f"[{short}]({r['url']})" if r.get("url") else short
+            fin_cell = f"[财报PDF]({r['fin_url']})" if r.get("fin_url") else "—"
+            price = fmt_price(r.get("last_price"))
+            chg = "-" if r.get("chg_pct") is None else fmt_pct(r.get("chg_pct"))
+            L.append(f"| {i} | {r['thscode']} | {r['name']} | {r.get('industry', '-')} | N | {r.get('date', '')} |"
+                     f" {ann_cell} | {fin_cell} | {price} | {chg} |")
+    else:
+        L.append("*暂无*\n")
+    L.append("")
+
     L.append("---")
     L.append("## 人工核验清单（API不可量化, 买入前逐项确认）\n")
     L.append("1. 财报/公告关键词: 供不应求 / 订单饱满 / 量价齐升 / 产品涨价 / 新产品·新市场放量")
@@ -156,6 +178,7 @@ def gen_json(ctx, path):
         "market": ctx["market"],
         "industry_heat": ctx["heat_rows"],
         "records": ctx["records"],
+        "restruct": ctx.get("restruct", []),
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     with open(path, "w", encoding="utf-8") as f:

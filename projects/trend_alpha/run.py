@@ -25,7 +25,7 @@ import fetch  # noqa: E402
 import metrics  # noqa: E402
 import report  # noqa: E402
 from tools.ths_api import log, fetch_all_stocks  # noqa: E402
-from tools.filters import filter_candidates  # noqa: E402
+from tools.filters import filter_candidates, is_st  # noqa: E402
 
 NOW = datetime.now()
 TODAY = NOW.strftime("%Y-%m-%d")
@@ -63,6 +63,7 @@ def main():
         "p_annual": cfg.P_ANNUAL,
         "require_prev": require_prev, "require_annual": require_annual,
         "require_eps": cfg.REQUIRE_EPS,
+        "restruct_days": cfg.RESTRUCT_DAYS,
         "exclude_st": cfg.EXCLUDE_ST, "exclude_bse": cfg.EXCLUDE_BSE,
         "exclude_star": cfg.EXCLUDE_STAR,
     }
@@ -101,27 +102,34 @@ def main():
     stats["universe"] = len(candidates)
     log(f"  候选池: {len(candidates)} 只")
 
-    # ── 2. 财务筛选(带当日缓存) ──
+    # ── 2. 财务筛选(跨日缓存+TTL, 配额友好; 增量补缺) ──
     log(f"2/6 财务筛选 (主筛 {cfg.REPORT_MAIN})...")
-    fin_cache = os.path.join(cfg.CACHE_DIR, f"fin_{cfg.REPORT_MAIN}_{DATE_TAG}.json")
+    fin_cache = cfg.FIN_CACHE
     fin = {}
-    cache_valid = False
-    if os.path.exists(fin_cache) and not args.refresh_fin:
+    saved_on = None
+    if os.path.exists(fin_cache):
         with open(fin_cache) as f:
             fin_all = json.load(f)
-        if fin_all.get("__meta__", {}).get("n") == len(candidates):
-            fin = {k: v for k, v in fin_all.items() if k != "__meta__"}
-            cache_valid = True
-            log(f"  财务使用当日缓存: {len(fin)} 只")
-        else:
-            log(f"  财务缓存覆盖范围不符(缓存{fin_all.get('__meta__', {}).get('n')}只"
-                f" vs 候选{len(candidates)}只), 重新抓取")
-    if not cache_valid:
-        fin = {}
+        saved_on = fin_all.get("__meta__", {}).get("saved_on")
+        fin = {k: v for k, v in fin_all.items() if k != "__meta__"}
+    ttl_ok = False
+    if saved_on:
+        try:
+            ttl_ok = (datetime.now() - datetime.strptime(saved_on, "%Y-%m-%d")).days <= cfg.FIN_TTL_DAYS
+        except ValueError:
+            ttl_ok = False
+
+    cand_codes = [s["thscode"] for s in candidates]
+    if args.refresh_fin or not ttl_ok:
+        fetch_codes, mode = cand_codes, "全量"
+    else:
+        fetch_codes, mode = [tc for tc in cand_codes if tc not in fin], "增量补缺"
+    if fetch_codes:
+        if mode == "全量":
+            fin = {}
         t = time.time()
-        fmap = fetch.indicators_map([s["thscode"] for s in candidates],
-                                    cfg.REPORT_MAIN, cfg.FETCH_WORKERS_FIN)
-        log(f"  主报告期抓取完成: {len(fmap)} 只 ({elapsed(t):.0f}s)")
+        fmap = fetch.indicators_map(fetch_codes, cfg.REPORT_MAIN, cfg.FETCH_WORKERS_FIN)
+        log(f"  主报告期{mode}抓取: {len(fmap)}/{len(fetch_codes)} 只 ({elapsed(t):.0f}s)")
         for tc, flat in fmap.items():
             fin[tc] = {
                 "g_main": flat.get(cfg.IDS["profit"]),
@@ -133,12 +141,18 @@ def main():
                 "eps_main": flat.get(cfg.IDS.get("eps")) if cfg.IDS.get("eps") else None,
             }
         with open(fin_cache, "w") as f:
-            json.dump({"__meta__": {"n": len(candidates)}, **fin}, f, ensure_ascii=False)
-        log(f"  财务缓存已存 ({DATE_TAG})")
+            json.dump({"__meta__": {"n": len(candidates), "saved_on": TODAY,
+                                    "report": cfg.REPORT_MAIN}, **fin},
+                      f, ensure_ascii=False)
+        log(f"  财务缓存已存: {os.path.basename(fin_cache)} (saved_on={TODAY})")
+    else:
+        log(f"  财务缓存有效(保存于 {saved_on}, TTL {cfg.FIN_TTL_DAYS}天): 复用 {len(fin)} 只, 免抓取")
 
     def save_fin_cache():
         with open(fin_cache, "w") as f:
-            json.dump({"__meta__": {"n": len(candidates)}, **fin}, f, ensure_ascii=False)
+            json.dump({"__meta__": {"n": len(candidates), "saved_on": TODAY,
+                                    "report": cfg.REPORT_MAIN}, **fin},
+                      f, ensure_ascii=False)
 
     def eps_of(entry):
         """EPS同比: 有真实EPS字段用EPS, 否则归母净利同比代理(API暂无eps字段)。"""
@@ -155,7 +169,7 @@ def main():
             return False
         return True
 
-    main_pass = [tc for tc, e in fin.items() if gate_main(e)]
+    main_pass = [tc for tc in cand_codes if tc in fin and gate_main(fin[tc])]
     stats["fin_base"] = len(main_pass)
     eps_tag = f" EPS同比≥{cfg.P_EPS_MAIN}%(代理)" if cfg.REQUIRE_EPS else ""
     log(f"  主报告期达标(营收≥{cfg.P_SALES_MAIN}% 净利≥{cfg.P_PROFIT_MAIN}%{eps_tag}): {len(main_pass)} 只")
@@ -284,7 +298,7 @@ def main():
     # ── 4. 行业热度 ──
     log("4/6 行业热度(一级881+二级884回退)...")
     boards_l1, boards_sub, members_l1, members_sub = fetch.fetch_industry_members(
-        cfg.CACHE_DIR, force=args.refresh_ind)
+        force=args.refresh_ind)
     ind_of, heat_rows = metrics.industry_stats(records, members_l1, members_sub)
     hot_inds = {h["industry"] for h in heat_rows if h["hot"]}
     for r in records:
@@ -333,12 +347,59 @@ def main():
         except Exception as e:
             log(f"  ⚠ PDF链接充实失败(跳过): {e}")
 
+    # ── 5.7 重大资产重组观察组 (CANSLIM N属性) ──
+    restruct = []
+    if cfg.RESTRUCT_ENABLE:
+        log(f"5.7/6 重大资产重组观察组(近{cfg.RESTRUCT_DAYS}天公告)...")
+        try:
+            anns = fetch.fetch_restruct_announcements(cfg.RESTRUCT_DAYS, cfg.RESTRUCT_PAGE_CAP)
+            code2tc = {s["thscode"].split(".")[0]: s["thscode"] for s in stocks}
+            latest = {}
+            for a in anns:  # 已按时间降序, 每只保留最新一条
+                tc = code2tc.get(a["code"])
+                if not tc:
+                    continue
+                nm = a["name"] or name_map.get(tc, "")
+                if cfg.RESTRUCT_APPLY_EXCLUDES:
+                    if ((cfg.EXCLUDE_ST and is_st(nm))
+                            or (cfg.EXCLUDE_BSE and tc.endswith(".BJ"))
+                            or (cfg.EXCLUDE_STAR and tc.startswith("688"))):
+                        continue
+                if tc in latest:
+                    latest[tc]["ann_count"] += 1
+                else:
+                    latest[tc] = {**a, "thscode": tc, "name": nm, "ann_count": 1}
+            rlist = list(latest.values())[:cfg.RESTRUCT_MAX]
+            hot = []
+            for r in rlist:
+                r["industry"] = metrics.resolve_industry(r["thscode"], members_l1, members_sub)
+                if r["industry"] in hot_inds:
+                    hot.append(r)
+            snaps_r = fetch_snapshot_batch([r["thscode"] for r in rlist])
+            for r in rlist:
+                s = snaps_r.get(r["thscode"], {})
+                r["last_price"] = s.get("last_price")
+                r["chg_pct"] = s.get("price_change_ratio_pct")
+            import enricher
+            fin_map = enricher.enrich_latest_fin([r["thscode"].split(".")[0] for r in rlist], log_fn=log)
+            for r in rlist:
+                r["fin_url"] = fin_map.get(r["thscode"].split(".")[0], "")
+            restruct = rlist
+            rset = {r["thscode"] for r in restruct}
+            for rec in records:
+                if rec["thscode"] in rset:
+                    rec["restruct_flag"] = True
+            log(f"  重组观察组: {len(restruct)} 只 (其中热行业{len(hot)}只)")
+        except Exception as e:
+            log(f"  ⚠ 重组观察组失败(跳过): {e}")
+
     # ── 6. 输出 ──
     log("6/6 生成报告...")
     ctx = {
         "date": TODAY, "weekday": WEEKDAY_CN, "params": params,
         "stats": stats, "market": market, "heat_rows": heat_rows,
         "buckets": buckets, "records": records, "pdf_links": pdf_links,
+        "restruct": restruct,
     }
     md_path = os.path.join(cfg.OUTPUT_DIR, f"trend_alpha_{TODAY}.md")
     json_path = os.path.join(cfg.OUTPUT_DIR, f"trend_alpha_{TODAY}.json")

@@ -97,18 +97,20 @@ def compute_market_state(idx_bars_map):
     }
 
 
+def resolve_industry(tc, members_l1, members_sub):
+    """行业归属: 一级(881)优先, 缺失回退二级(884·二级), 均无记未分类。"""
+    name = members_l1.get(tc)
+    if name:
+        return name
+    name = members_sub.get(tc)
+    return f"{name}·二级" if name else "未分类"
+
+
 def industry_stats(records, members_l1, members_sub):
-    """行业归属: 优先一级行业(881), 缺失时回退二级行业(884, 名称后附·二级),
-    均未命中记"未分类"(不再计为热行业)。返回 (ind_of, heat_rows)。"""
+    """按行业统计过线家数与平均增速。返回 (ind_of, heat_rows)。"""
     ind_of = {}
     for r in records:
-        tc = r["thscode"]
-        name = members_l1.get(tc)
-        if not name:
-            name = members_sub.get(tc)
-            if name:
-                name = f"{name}·二级"
-        ind_of[tc] = name or "未分类"
+        ind_of[r["thscode"]] = resolve_industry(r["thscode"], members_l1, members_sub)
 
     groups = {}
     for r in records:

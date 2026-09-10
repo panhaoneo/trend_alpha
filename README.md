@@ -20,7 +20,8 @@ GitHub Actions 每个交易日 **16:30（北京时间，收盘后）** 自动运
 4. 行业热度：同花顺一级行业(881xxx)+二级(884xxx)回退补全，「未分类」不计热行业
 5. 大盘方向（M）：上证/沪深300/创业板指 vs MA50/MA200
 6. 输出分层清单：**A 景气核心α / B 接近一年新高 / C 回调观察 / 待观察**
-7. 每只入选标的附 **财报 PDF + 招股书 PDF** 链接（巨潮资讯网，便于投研）
+7. **R 重大资产重组观察组（N属性）**：巨潮全文检索近 90 天「重大资产重组」公告（去重取最新），附公告链接 + 最新定期报告 PDF；主清单命中者名称标 ·N
+8. 每只入选标的附 **财报 PDF + 招股书 PDF** 链接（巨潮资讯网，便于投研）
 
 - 报告 Markdown/JSON：`output/trend_alpha/trend_alpha_YYYY-MM-DD.md/.json`
 - 网页浏览（GitHub Pages）：`https://panhaoneo.github.io/trend_alpha/`
@@ -33,13 +34,14 @@ pip install requests          # 仅依赖 requests
 # 环境变量提供 API Key（或放 data/THS_API_KEY）
 export FUYAO_API_KEY=sk-...
 python3 projects/trend_alpha/run.py            # 每日运行（缓存优先）
-python3 projects/trend_alpha/run.py --refresh-fin   # 强制重拉财务（新报告期）
+python3 projects/trend_alpha/run.py --refresh-fin   # 强制重拉财务（新报告期生效用）
 python3 projects/trend_alpha/run.py --sample 60     # 冒烟测试
 python3 scripts/build_site.py                  # 渲染 docs/ 静态站点
 ```
 
-当日重跑依赖缓存（财务/行业成分/技术K线），通常 <1 分钟；换交易日全量约 6-8 分钟。
-指标真实 id 每次运行自动探测并 dump 至 `projects/trend_alpha/cache/probe_dump.json`。
+配额友好策略：财务快照与行业成分缓存于 `data/` 并随仓库提交，默认有效期 `FIN_TTL_DAYS=7` 天，
+超期或 `--refresh-fin` 时全量重拉；同日/跨日运行仅增量补缺（API 调用量从 ~5000 降至 ~300/日）。
+财报季(1/4/7/8/10月)建议每周执行一次 `--refresh-fin`，或把 TTL 调为 1。
 
 ## 目录结构
 

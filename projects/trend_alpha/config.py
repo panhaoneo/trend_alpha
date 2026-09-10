@@ -71,6 +71,13 @@ HOT_IND_MIN_COUNT = 5      # 热行业: 过线家数≥5
 HOT_IND_MIN_AVG = 40.0     # 且行业平均净利增速≥40%
 TOP_HOT_DISPLAY = 15       # 热度榜展示数量
 
+# ── 重大资产重组观察组 (CANSLIM N属性: 新业务/新管理层/重组) ──
+RESTRUCT_ENABLE = True
+RESTRUCT_DAYS = 90         # 公告回溯窗口(天)
+RESTRUCT_PAGE_CAP = 25     # 巨潮检索分页上限(每页30条)
+RESTRUCT_MAX = 80          # 展示上限(按公告时间降序)
+RESTRUCT_APPLY_EXCLUDES = True   # 应用 ST/北交所/科创板 排除(与其他清单一致)
+
 # ── 综合评分权重(0-100) ──
 W_PROFIT = 25.0    # 主报告期净利同比
 W_REV = 15.0       # 主报告期营收同比
@@ -81,6 +88,13 @@ W_VOL = 5.0        # 放量比
 W_HOT = 10.0       # 属热行业
 EXTREME_PROFIT = 1000.0  # 增速超过此值截断并标记 extreme
 ROE_TARGET = 17.0
+
+# ── 缓存策略(API配额友好) ──
+DATA_DIR = os.path.join(BASE_DIR, "data")
+FIN_CACHE = os.path.join(DATA_DIR, f"fin_{REPORT_MAIN}.json")   # 财务快照(跨日复用, 随仓库提交)
+FIN_TTL_DAYS = 7           # 财务缓存有效期(天); 财报季可调为1或使用 --refresh-fin
+IND_CACHE = os.path.join(DATA_DIR, "industry_members.json")     # 行业成分(跨日复用)
+IND_TTL_DAYS = 7
 
 # ── 其他 ──
 ENRICH_PDF = True        # 为入选标的补充巨潮 财报/招股书 PDF 链接(便于投研)

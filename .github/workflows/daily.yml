@@ -42,7 +42,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs output/trend_alpha data/cninfo_pdf_cache.json
+          git add docs output/trend_alpha data
           git commit -m "daily screen $(date -u +%F-%H%M)" --allow-empty
           git push
 
