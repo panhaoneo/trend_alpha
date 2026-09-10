@@ -137,7 +137,7 @@ def compute_quality(rec):
     """利润质量/现金流匹配指标 (API可得):
     - margin_pp: 毛利率同比变化(百分点)
     - cash_flag: 净现比&现金营运指数 → 优/良/一般/差
-    - eps_eff: EPS同比(无EPS字段时以归母净利同比为代理)"""
+    - eps_eff: EPS同比(利润表basic_eps同报告期同比; None=无同期基数/未披露)"""
     gm, gl = rec.get("gross_main"), rec.get("gross_ly")
     if gm is not None and gl is not None:
         rec["margin_pp"] = round(gm - gl, 1)
@@ -156,8 +156,7 @@ def compute_quality(rec):
             rec["cash_flag"] = "一般"
         else:
             rec["cash_flag"] = "差"
-    eps = rec.get("eps_main")
-    rec["eps_eff"] = eps if eps is not None else rec.get("g_main")
+    rec["eps_eff"] = rec.get("eps_main")
     return rec
 
 

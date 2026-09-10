@@ -157,25 +157,17 @@ def main():
                                     "report": cfg.REPORT_MAIN}, **fin},
                       f, ensure_ascii=False)
 
-    def eps_of(entry):
-        """EPS同比: 有真实EPS字段用EPS, 否则归母净利同比代理(API暂无eps字段)。"""
-        eps = entry.get("eps_main")
-        return eps if eps is not None else entry.get("g_main")
-
     def gate_main(entry):
         g, rev = entry.get("g_main"), entry.get("rev_main")
         if g is None or rev is None:
             return False
         if g < cfg.P_PROFIT_MAIN or rev < cfg.P_SALES_MAIN:
             return False
-        if cfg.REQUIRE_EPS and (eps_of(entry) or 0) < cfg.P_EPS_MAIN:
-            return False
         return True
 
     main_pass = [tc for tc in cand_codes if tc in fin and gate_main(fin[tc])]
     stats["fin_base"] = len(main_pass)
-    eps_tag = f" EPS同比≥{cfg.P_EPS_MAIN}%(代理)" if cfg.REQUIRE_EPS else ""
-    log(f"  主报告期达标(营收≥{cfg.P_SALES_MAIN}% 净利≥{cfg.P_PROFIT_MAIN}%{eps_tag}): {len(main_pass)} 只")
+    log(f"  主报告期达标(营收≥{cfg.P_SALES_MAIN}% 净利≥{cfg.P_PROFIT_MAIN}%): {len(main_pass)} 只")
 
     if require_prev:
         need = [tc for tc in main_pass if fin[tc].get("g_prev") is None]
@@ -206,6 +198,25 @@ def main():
                     and fin[tc]["g_annual"] >= cfg.P_ANNUAL)]
         log(f"  年度验证(净利≥{cfg.P_ANNUAL}%): {len(kept)} 只")
         main_pass = kept
+
+    # EPS同比(真实口径: 利润表 basic_eps, 同报告期对上年同期; 无基数显示—并保留)
+    stats["eps_cut"] = 0
+    if cfg.REQUIRE_EPS:
+        need_eps = [tc for tc in main_pass if not fin.get(tc, {}).get("eps_checked")]
+        if need_eps:
+            t = time.time()
+            emap = fetch.eps_yoy_map(need_eps, cfg.REPORT_MAIN, cfg.FETCH_WORKERS_FIN, log_every=200)
+            for tc, v in emap.items():
+                fin.setdefault(tc, {})["eps_main"] = v
+                fin[tc]["eps_checked"] = True
+            log(f"  EPS同比(利润表basic_eps)抓取: {len(emap)} 只 ({elapsed(t):.0f}s)")
+            save_fin_cache()
+        before = len(main_pass)
+        main_pass = [tc for tc in main_pass
+                     if fin[tc].get("eps_main") is None
+                     or fin[tc]["eps_main"] >= cfg.P_EPS_MAIN]
+        stats["eps_cut"] = before - len(main_pass)
+        log(f"  EPS同比≥{cfg.P_EPS_MAIN}%: {len(main_pass)} 只 (剔除{stats['eps_cut']}只; 无同期基数保留显示—)")
 
     # 同期对比报告期(毛利率同比Δ)
     need_cmp = [tc for tc in main_pass if fin[tc].get("gross_ly") is None]

@@ -16,14 +16,14 @@ REPORT_CMP = "2025-2"        # 同期对比(毛利率同比Δ): 2025中报
 # ── 财务硬门槛 (sales/net income/EPS 三率体系) ──
 P_SALES_MAIN = 30.0     # 主报告期 营收同比(%)       [C: 营收≥25~30, 用户要求≥30]
 P_PROFIT_MAIN = 40.0    # 主报告期 归母净利同比(%)   [静水≥40 / C:18-25+]
-P_EPS_MAIN = 30.0       # 主报告期 EPS同比(%)        [C: 每股收益≥18-25+, 用户要求≥30]
+P_EPS_MAIN = 30.0       # 主报告期 EPS同比(%)      [利润表basic_eps同报告期同比; C: 每股收益≥18-25+, 用户要求≥30]
 P_PROFIT_PREV = 40.0    # 前一报告期 净利同比(%)     [双期确认]
 P_ANNUAL = 25.0         # 年度净利同比(%)            [A 要素, REQUIRE_ANNUAL 时启用]
 P_ROE = 15.0            # ROE 质量线(%)              [A 要素: 17; 默认仅计分]
 REQUIRE_PREV = True
 REQUIRE_ANNUAL = False
 REQUIRE_ROE = False
-REQUIRE_EPS = True      # EPS同比≥P_EPS_MAIN (API暂无EPS字段时以归母净利同比为代理)
+REQUIRE_EPS = True      # EPS同比≥P_EPS_MAIN (利润表basic_eps同报告期同比; 无同期基数者保留并显示—)
 
 # ── 排除规则 ──
 EXCLUDE_ST = True

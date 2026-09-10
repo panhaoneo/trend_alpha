@@ -177,6 +177,51 @@ def index_bars(thscode, start_ms, end_ms):
     return bars
 
 
+# ── EPS同比 (利润表 basic_eps, 同报告期对上年同期) ──
+
+def report_to_fp(report):
+    """'2026-2' → (2026, 'Q2'); '2025-4' → (2025, 'FY')"""
+    y, q = report.split("-")
+    return int(y), {"1": "Q1", "2": "Q2", "3": "Q3", "4": "FY"}[q]
+
+
+def _fetch_eps_series(thscode):
+    data = _retry_get("/api/a-share/financials/income-statements",
+                      {"thscode": thscode, "period": "quarterly", "limit": 6}, 15)
+    series = {}
+    for it in safe_items(data):
+        series[(it.get("fiscal_year"), it.get("fiscal_period"))] = it.get("basic_eps")
+    return series
+
+
+def eps_yoy_map(codes, report, workers=25, log_every=200):
+    """codes → {thscode: EPS同比% 或 None(无同期基数/未披露)}"""
+    y, fp = report_to_fp(report)
+
+    def one(tc):
+        s = _fetch_eps_series(tc)
+        cur, prev = s.get((y, fp)), s.get((y - 1, fp))
+        val = None
+        try:
+            if prev is not None and float(prev) > 0 and cur is not None:
+                val = round((float(cur) / float(prev) - 1) * 100, 2)
+        except (TypeError, ValueError):
+            val = None
+        return tc, val
+
+    out = {}
+    done = [0]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+        fmap = {ex.submit(one, c): c for c in codes}
+        for f in concurrent.futures.as_completed(fmap):
+            done[0] += 1
+            if done[0] % log_every == 0:
+                log(f"    EPS进度 {done[0]}/{len(codes)}")
+            tc, val = f.result()
+            out[tc] = val
+    return out
+
+
 # ── 行业成分 ──
 
 def fetch_industry_members(force=False):
