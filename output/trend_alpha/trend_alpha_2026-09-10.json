@@ -15665,6 +15665,20 @@
  ],
  "restruct": [
   {
+   "code": "300808",
+   "name": "久量股份",
+   "title": "关于筹划重大资产重组暨签订《股权投资意向协议》的提示性公告",
+   "date": "2026-09-10",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-09-10/1225558614.PDF",
+   "type": null,
+   "thscode": "300808.SZ",
+   "ann_count": 1,
+   "industry": "光学光电子",
+   "last_price": 24.83,
+   "chg_pct": -1.311606,
+   "fin_url": "http://static.cninfo.com.cn/finalpage/2026-08-14/1225472548.PDF"
+  },
+  {
    "code": "003031",
    "name": "中瓷电子",
    "title": "中信证券股份有限公司关于河北中瓷电子科技股份有限公司重大资产重组部分限售股份上市流通的核查意见",
@@ -16673,5 +16687,5 @@
    "fin_url": "http://static.cninfo.com.cn/finalpage/2026-08-27/1225509632.PDF"
   }
  ],
- "generated_at": "2026-09-10 08:42:26"
+ "generated_at": "2026-09-10 13:00:46"
 }
