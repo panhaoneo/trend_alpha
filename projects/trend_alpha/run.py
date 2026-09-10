@@ -130,6 +130,9 @@ def main():
         t = time.time()
         fmap = fetch.indicators_map(fetch_codes, cfg.REPORT_MAIN, cfg.FETCH_WORKERS_FIN)
         log(f"  主报告期{mode}抓取: {len(fmap)}/{len(fetch_codes)} 只 ({elapsed(t):.0f}s)")
+        if mode == "全量" and not fmap:
+            log("  ✗ 全量财务抓取全部失败(接口限流/网络?), 本次不产出报告, 请稍后重试")
+            return 1
         for tc, flat in fmap.items():
             fin[tc] = {
                 "g_main": flat.get(cfg.IDS["profit"]),

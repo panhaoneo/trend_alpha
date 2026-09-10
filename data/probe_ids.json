@@ -1,0 +1,8 @@
+{
+ "profit": "calculate_parent_holder_net_profit_yoy_growth_ratio",
+ "rev": "calculate_operating_income_yoy_growth_ratio",
+ "roe": "index_weighted_avg_roe",
+ "gross": "sale_gross_margin",
+ "cash_content": "net_profit_cash_content",
+ "cash_op_index": "cash_operating_index"
+}

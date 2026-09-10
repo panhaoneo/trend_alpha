@@ -28,6 +28,7 @@
 !/data/cninfo_pdf_cache.json
 !/data/fin_*.json
 !/data/industry_members.json
+!/data/probe_ids.json
 !/docs
 /docs/*
 !/docs/trend_alpha_framework.md

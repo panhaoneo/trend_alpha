@@ -40,19 +40,19 @@ def _retry_get(endpoint, params, timeout, retries=2):
 
 # ── 探测: 真实指标 id ──
 
-def _probe_ids_cache_path(dump_dir):
-    return os.path.join(dump_dir, "probe_ids.json")
+def _probe_ids_path():
+    return os.path.join(_REPO, "data", "probe_ids.json")
 
 
 def probe_indicator_ids(reports, dump_dir):
     """抓取样本股多个报告期, dump 原始 indicators, 按子串候选回填 id。
-    网络/限流失败时回退上次成功探测的 id 缓存(cache/probe_ids.json)。"""
+    网络/限流失败时回退 data/probe_ids.json 中上次成功的 id(随仓库提交)。"""
     import config as cfg
     os.makedirs(dump_dir, exist_ok=True)
     raw = {}
     for rep in reports:
         data = _retry_get("/api/a-share/financials/indicators",
-                          {"thscode": PROBE_CODE, "report": rep}, 20)
+                          {"thscode": PROBE_CODE, "report": rep}, 15)
         raw[rep] = data
     with open(os.path.join(dump_dir, "probe_dump.json"), "w") as f:
         json.dump(raw, f, ensure_ascii=False, indent=1)
@@ -77,18 +77,19 @@ def probe_indicator_ids(reports, dump_dir):
             found[role] = hit
 
     if found.get("profit") and found.get("rev"):
-        with open(_probe_ids_cache_path(dump_dir), "w") as f:
+        os.makedirs(os.path.dirname(_probe_ids_path()), exist_ok=True)
+        with open(_probe_ids_path(), "w") as f:
             json.dump(found, f, ensure_ascii=False, indent=1)
         for role, cid in found.items():
             log(f"  指标id[{role}] = {cid}")
     else:
         cached = {}
-        p = _probe_ids_cache_path(dump_dir)
+        p = _probe_ids_path()
         if os.path.exists(p):
             with open(p) as f:
                 cached = json.load(f)
         if cached.get("profit") and cached.get("rev"):
-            log("  ⚠ 探测失败(接口限流/异常), 回退上次成功的指标id缓存")
+            log("  ⚠ 探测失败(接口限流/异常), 回退 data/probe_ids.json 上次成功指标id")
             found = cached
             for role, cid in found.items():
                 log(f"  指标id[{role}] = {cid} (回退)")
