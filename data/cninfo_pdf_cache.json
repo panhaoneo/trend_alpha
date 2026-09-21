@@ -4196,5 +4196,14 @@
     "report": "",
     "prospectus": "",
     "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225498760.PDF"
+  },
+  "603316": {
+    "report": "http://static.cninfo.com.cn/finalpage/2026-08-31/1225534780.PDF",
+    "prospectus": "http://static.cninfo.com.cn/finalpage/2017-05-16/1203521312.PDF"
+  },
+  "600825": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-09-05/1225548425.PDF"
   }
 }
