@@ -4210,5 +4210,23 @@
     "report": "",
     "prospectus": "",
     "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-25/1225499434.PDF"
+  },
+  "002780": {
+    "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225533152.pdf",
+    "prospectus": "http://static.cninfo.com.cn/finalpage/2015-11-30/1201796547.PDF"
+  },
+  "001266": {
+    "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225530304.PDF",
+    "prospectus": ""
+  },
+  "002480": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-09-08/1225551538.PDF"
+  },
+  "000663": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-28/1225521560.PDF"
   }
 }
