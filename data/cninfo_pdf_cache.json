@@ -4262,5 +4262,10 @@
   "300556": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225524395.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2016-10-25/1202782209.PDF"
+  },
+  "002860": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-20/1225483388.PDF"
   }
 }
