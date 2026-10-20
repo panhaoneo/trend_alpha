@@ -2566,7 +2566,7 @@
   "300773": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-08/1225464405.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2019-04-15/1206015151.PDF",
-    "latest_fin": ""
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-08/1225464405.PDF"
   },
   "001378": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-19/1225479358.PDF",
@@ -4272,5 +4272,10 @@
   "600037": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225525301.PDF",
     "prospectus": ""
+  },
+  "600293": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-22/1225493459.PDF"
   }
 }
