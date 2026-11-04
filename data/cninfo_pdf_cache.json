@@ -4308,10 +4308,15 @@
   "002827": {
     "report": "",
     "prospectus": "",
-    "latest_fin": ""
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-14/1225472045.PDF"
   },
   "003010": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-29/1225527810.PDF",
     "prospectus": "http://static.cninfo.com.cn/finalpage/2020-09-15/1208437263.PDF"
+  },
+  "601326": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-10-30/1225641314.PDF"
   }
 }
