@@ -681,7 +681,8 @@
   },
   "301321": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-22/1225492315.PDF",
-    "prospectus": ""
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-22/1225492315.PDF"
   },
   "002961": {
     "report": "http://static.cninfo.com.cn/finalpage/2026-08-28/1225519152.PDF",
@@ -4347,5 +4348,10 @@
     "report": "",
     "prospectus": "",
     "latest_fin": ""
+  },
+  "301550": {
+    "report": "",
+    "prospectus": "",
+    "latest_fin": "http://static.cninfo.com.cn/finalpage/2026-08-26/1225503964.PDF"
   }
 }
